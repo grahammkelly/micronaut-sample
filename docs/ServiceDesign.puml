@@ -1,0 +1,43 @@
+@startuml OagAdapter
+    skinparam componentArrowColor Black
+    ' left to right direction
+
+    !include <tupadr3/common>
+    !include <office/Servers/application_server>
+
+    !include <aws/common>
+    !include <aws/General/user/user>
+    !include <aws/General/AWScloud/AWScloud>
+    !include <aws/Compute/AmazonEC2/AmazonEC2>
+
+    OFF_APPLICATION_SERVER(GDS, GDS) #LightBlue
+    OFF_APPLICATION_SERVER(OAGFN, OAG Flight\nNotifications API) #LightBlue
+    ' OFF_EMAIL(Email, Email)
+    USER(user, User)
+
+    AWSCLOUD(MToD, MToD) {
+        OFF_APPLICATION_SERVER(Engage, Engage) #LightGreen
+        database "Trip Store" as TSS    #LightGreen
+        OFF_APPLICATION_SERVER(TA, Trip Import) #LightGreen
+
+        AMAZONEC2(OAGS, OAG Adapter)
+        AMAZONEC2(FRS, Flight Registration\nService)
+
+        database "Flight Registration\nDB" as FRSdb
+
+        queue "Trip Event\nQueue" as queue #LightGreen
+    }
+
+    GDS .l. TA: Booking created/updated
+    TA .. FRS: Register trip for notifications
+    FRS -r- FRSdb
+    FRS .. OAGS: <<Scheduled>>\nRegister Flight(s) for notifications
+    OAGS ..>> OAGFN: Register flight for notifications
+    OAGS <<.. OAGFN: Notification(s)
+    OAGS ~~>> queue: <<Publish>>\nTrip Update event
+    queue ~~>> OAGS: <<Listen>>\nTrip Update event
+    OAGS ~~>> Engage: Trip Update Notification
+    TA ~l~ TSS: Trip Import
+    Engage ~~ TSS
+    Engage ~~ user
+@enduml

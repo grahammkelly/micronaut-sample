@@ -1,0 +1,92 @@
+@startuml UC1_TripImport
+    skinparam componentArrowColor Black
+
+    (Trip Import) as GDS #LightBlue
+    frame "Flight Registration Service" {
+        (Trip Registration) as FRS
+    }
+    database "Flight Registration" <<MongoDB>> as FRDb
+
+    GDS -->> FRS: Trip import (Registers\nFlights for Notifications)
+    FRS .right.>> FRDb: Stores Flight, TripId\nand Flight date/time
+
+    note top of FRDb #LightGray
+        TTL should be set to several days
+        after flight arrival. In this case,
+        Mongo cleans up the collections
+        automatically
+    end note
+
+    note bottom of FRS #LightGray
+        Incoming call in same format as
+        current call into FS adapter
+    end note
+@enduml
+
+@startuml UC_FlightRegistraton
+    skinparam componentArrowColor Black
+
+    frame "Flight Registration Service" {
+        (Flight Registration) <<Scheduled>> as Sched
+    }
+    database "Flight Registration" <<MongoDB>> as FRDb
+    frame "OAG Adapter" {
+        (Flight Registration) as OAGApi
+
+        interface " " as RcvIf
+        (Notification Receiver) as Rcv
+        RcvIf - Rcv
+    }
+    (OAG Flight Notifciations API) as OAGFn #LightBlue
+
+    Sched <<.left.>> FRDb: <b>[001]</b> Reads Flights\nwithin window
+    Sched -->> OAGApi: <b>[002]</b> Register each flight
+    OAGApi --> OAGFn: <b>[003]</b> Register flight\nfor Notifications
+
+    OAGFn ~~>> RcvIf: <b>[003a]</b> Registration\nAck/Nack
+@enduml
+
+@startuml UC_NotificationReceipt
+    skinparam componentArrowColor Black
+
+    frame "Flight Registration Service" {
+        (Trip Update Listener) <<Listener>> as TripListener
+        (Flight Update Listener) <<Listener>> as FlightListener
+    }
+    queue "Queue" <<Externally provided>> as q #LightGreen
+    frame "OAG Adapter" {
+        interface " " as RcvIf
+        (Notification Receiver) as Rcv
+        RcvIf - Rcv
+    }
+    (OAG Flight Notifications API) as OAGFn #LightBlue
+    (Engage) #LightGreen
+
+    FlightListener -[hidden]left- TripListener
+
+    OAGFn ~~> RcvIf: <b>[001]</b> Flight Update Notification
+    Rcv -->> q: <b>[002a]</b> Flight\nupdate event
+    q ..>> FlightListener: <b>[002b]</b> Flight\nupdate event
+
+    FlightListener -->> q: <b>[003a]</b> Trip Update\nevent for ea.\ntrip affected
+    q ..>> TripListener: <b>[003b]</b> Trip Update\nevent
+    TripListener -right->> Engage: <b>[004]</b> Update trip\nand/or send notification
+
+    note bottom of TripListener #LightGray
+       The expectation is that eventually
+       these events will be directly listened
+       to be affected downstream services.
+    end note
+
+    note bottom of Engage #LightGray
+        Call to Engage to updater the trip
+        should be in the same format as
+        existing FS adapter call
+    end note
+
+    note as tenantNote #LightGray
+        Tenant ID is not important to the Flight notifications
+        flow until updating trips and/or sending notifications
+        to travelelers (message <b>[003a]</b> onwards)
+    end note
+@enduml
