@@ -1,0 +1,13 @@
+pluginManagement {
+  repositories {
+    maven {
+      url "https://system-artifactory.build.mttnow.com/artifactory/maven-all"
+      credentials {
+        username = "${ARTIFACTORY_USERNAME}"
+        password = "${ARTIFACTORY_PASSWORD}"
+      }
+    }
+  }
+}
+
+rootProject.name="flight-info-oag-adapter"

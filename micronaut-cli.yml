@@ -1,0 +1,5 @@
+profile: service
+defaultPackage: com.travelport.flight.info.adapter.oag
+---
+testFramework: spock
+sourceLanguage: java

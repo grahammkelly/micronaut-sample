@@ -1,0 +1,5 @@
+micronaut:
+  application:
+    name: flight-info-oag-adapter
+  config-client:
+    enabled: true

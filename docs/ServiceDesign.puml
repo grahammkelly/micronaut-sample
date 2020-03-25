@@ -25,19 +25,19 @@
 
         database "Flight Registration\nDB" as FRSdb
 
-        queue "Trip Event\nQueue" as queue #LightGreen
+        queue "Trip/Flight\nEvent Queue" as queue #LightGreen
     }
 
     GDS .l. TA: Booking created/updated
     TA .. FRS: Register trip for notifications
     FRS -r- FRSdb
-    FRS .. OAGS: <<Scheduled>>\nRegister Flight(s) for notifications
-    OAGS ..>> OAGFN: Register flight for notifications
+    FRS ..>> OAGS: <<Scheduled>>\nRegister Flight(s)\nfor notifications
+    OAGS ..>> OAGFN: Register flight\nfor notifications
     OAGS <<.. OAGFN: Notification(s)
-    OAGS ~~>> queue: <<Publish>>\nTrip Update event
-    queue ~~>> OAGS: <<Listen>>\nTrip Update event
-    OAGS ~~>> Engage: Trip Update Notification
-    TA ~l~ TSS: Trip Import
-    Engage ~~ TSS
-    Engage ~~ user
+    OAGS ~u~>> queue: <<Publish>>\nFlight Update event
+    queue ~u~>> FRS: <<Listen>>\nFlight & Trip\nUpdate events
+    FRS ~>> Engage: Trip Update\nnotification
+    TA ~l~ TSS
+    Engage ~u~ TSS
+    Engage ~l~ user
 @enduml

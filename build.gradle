@@ -1,0 +1,133 @@
+plugins {
+  id "com.google.cloud.tools.jib" version "2.1.0"
+  id "net.ltgt.apt-eclipse" version "0.21"
+  id "com.github.johnrengelman.shadow" version "5.2.0"
+  id "application"
+  id "groovy"
+
+  id "com.github.ben-manes.versions" version "0.28.0"
+}
+
+repositories {
+  mavenLocal()
+  maven {
+    url "https://system-artifactory.build.mttnow.com/artifactory/maven-all"
+    credentials {
+      username = "${ARTIFACTORY_USERNAME}"
+      password = "${ARTIFACTORY_PASSWORD}"
+    }
+  }
+}
+
+dependencyUpdates.resolutionStrategy {
+  componentSelection {
+    all {
+      def isNonStable = { String version ->
+        String v = version.toUpperCase()
+        ['ALPHA', 'BETA', 'B', 'RC', 'CR', 'PREVIEW', 'MILESTORE', 'M', 'EA', 'PR'].any { v.contains(it) }
+      }
+
+      if (isNonStable(it.candidate.version) && !isNonStable(it.candidate.currentVersion)) {
+        reject('Rejecting')
+      }
+    }
+  }
+}
+
+version "0.1"
+group "com.travelport.flight.info.adapter"
+
+//sourceCompatibility = JavaVersion.VERSION_11
+//targetCompatibility = JavaVersion.VERSION_11
+
+repositories {
+  mavenCentral()
+  maven { url "https://jcenter.bintray.com" }
+}
+
+configurations {
+  // for dependencies that are needed for development only
+  developmentOnly
+}
+
+ext {
+  micronautVersion = "1.3.3"
+  lombokVersion="1.18.12"
+  guavaVersion = "28.2-jre"
+
+  tvptInterceptorsVersion="2.1.2"
+}
+
+dependencies {
+  annotationProcessor platform("io.micronaut:micronaut-bom:$micronautVersion")
+
+  compileOnly "org.projectlombok:lombok:${lombokVersion}"
+  annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+
+  annotationProcessor "io.micronaut:micronaut-inject-java"
+  annotationProcessor "io.micronaut:micronaut-validation"
+  annotationProcessor "io.micronaut:micronaut-graal"
+  annotationProcessor "io.micronaut.configuration:micronaut-openapi"
+  compileOnly "org.graalvm.nativeimage:svm"
+  implementation platform("io.micronaut:micronaut-bom:$micronautVersion")
+
+  implementation "io.micronaut:micronaut-management"
+  implementation "io.micronaut:micronaut-inject"
+  implementation "io.micronaut:micronaut-validation"
+  implementation "io.micronaut:micronaut-runtime"
+  implementation "io.micronaut.kubernetes:micronaut-kubernetes-discovery-client"
+  implementation "io.swagger.core.v3:swagger-annotations"
+  implementation "io.micronaut.configuration:micronaut-micrometer-core"
+  implementation "io.micronaut.configuration:micronaut-micrometer-registry-statsd"
+  implementation "io.micronaut:micronaut-http-client"
+//  implementation "io.micronaut.configuration:micronaut-mongo-reactive"
+  compile 'io.projectreactor:reactor-core'
+  implementation "io.micronaut.configuration:micronaut-netflix-hystrix"
+  implementation "io.micronaut:micronaut-http-server-netty"
+
+  implementation "io.micronaut:micronaut-tracing"
+  runtime 'io.zipkin.brave:brave-instrumentation-http'
+  runtime 'io.zipkin.reporter2:zipkin-reporter'
+  implementation "io.opentracing.brave:brave-opentracing"
+  runtimeOnly "io.jaegertracing:jaeger-thrift"
+
+//  runtimeOnly "io.opentracing.contrib:opentracing-interceptors:0.0.5"
+//  runtimeOnly "io.opentracing.contrib:opentracing-interceptors:0.1.2"
+
+  runtimeOnly "ch.qos.logback:logback-classic:1.2.3"
+
+  implementation "com.mttnow.platform.common:platform-server-interceptors:${tvptInterceptorsVersion}"
+
+  implementation "com.google.guava:guava:${guavaVersion}"
+
+  testAnnotationProcessor platform("io.micronaut:micronaut-bom:$micronautVersion")
+  testImplementation platform("io.micronaut:micronaut-bom:$micronautVersion")
+//  testImplementation "de.flapdoodle.embed:de.flapdoodle.embed.mongo:2.0.1"
+  testImplementation("org.spockframework:spock-core") {
+    exclude group: "org.codehaus.groovy", module: "groovy-all"
+  }
+  testImplementation "io.micronaut:micronaut-inject-groovy"
+  testImplementation "io.micronaut.test:micronaut-test-spock"
+  testImplementation "io.micronaut.test:micronaut-test-junit5"
+}
+
+test.classpath += configurations.developmentOnly
+
+mainClassName = "com.travelport.flight.info.adapter.oag.Application"
+jib.to.image = 'gcr.io/flight-info-oag-adapter/jib-image'
+tasks.withType(JavaCompile) {
+  options.encoding = "UTF-8"
+  options.compilerArgs.add('-parameters')
+}
+if (project.hasProperty('springloadedAgent')) {
+  run.jvmArgs += springloadedAgent
+}
+
+shadowJar {
+  mergeServiceFiles()
+}
+
+tasks.withType(JavaExec) {
+  classpath += configurations.developmentOnly
+  jvmArgs('-noverify', '-XX:TieredStopAtLevel=1', '-Dcom.sun.management.jmxremote')
+}
